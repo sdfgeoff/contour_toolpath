@@ -76,7 +76,7 @@ Window = WindowCircular | WindowLinear
 
 
 
-def get_start_distance(window: Window, mesh: Mesh) -> float:
+def evaluate_distance_field_at_window_start(window: Window, mesh: Mesh) -> float:
     """
     Get the distance from the edge start to the start of the window
     """
@@ -90,7 +90,7 @@ def get_start_distance(window: Window, mesh: Mesh) -> float:
     return window.start_distance + edge_to_start_t * math.cos(window.source_direction)   
 
 
-def get_end_distance(window: Window, mesh: Mesh) -> float:
+def evaluate_distance_field_at_window_end(window: Window, mesh: Mesh) -> float:
     """
     Get the distance from the edge start to the end of the window
     """

@@ -1,6 +1,6 @@
 import math
 from contour_toolpath.mesh import Edge, EdgeId, Mesh, Vertex, VertexId
-from contour_toolpath.window import WindowLinear, WindowCircular, get_end_distance, get_start_distance
+from contour_toolpath.window import WindowLinear, WindowCircular, evaluate_distance_field_at_window_end, evaluate_distance_field_at_window_start
 from mathutil.vector import Vec2D, Vec3D
 
 def test_start_end_distance_linear_window():
@@ -25,8 +25,8 @@ def test_start_end_distance_linear_window():
         source_direction=math.pi / 2
     )
 
-    assert get_start_distance(window, mesh) == 1.0
-    assert get_end_distance(window, mesh) == 1.0  # Window is perpendicular to the edge
+    assert evaluate_distance_field_at_window_start(window, mesh) == 1.0
+    assert evaluate_distance_field_at_window_end(window, mesh) == 1.0  # Window is perpendicular to the edge
     
     window = WindowLinear(
         edge_id=EdgeId(0),
@@ -36,8 +36,8 @@ def test_start_end_distance_linear_window():
         source_direction=math.pi / 4
     )
 
-    assert get_start_distance(window, mesh) == 1.0
-    assert get_end_distance(window, mesh) == 1.0 + math.sqrt(2) / 2.0
+    assert evaluate_distance_field_at_window_start(window, mesh) == 1.0
+    assert evaluate_distance_field_at_window_end(window, mesh) == 1.0 + math.sqrt(2) / 2.0
 
 
     # Test when not spanning the whole edge
@@ -48,8 +48,8 @@ def test_start_end_distance_linear_window():
         start_distance=1.0,
         source_direction=math.pi / 4
     )
-    assert get_start_distance(window, mesh) == 1.0
-    assert get_end_distance(window, mesh) == 1.0 + math.sqrt(2) / 2.0 / 2.0
+    assert evaluate_distance_field_at_window_start(window, mesh) == 1.0
+    assert evaluate_distance_field_at_window_end(window, mesh) == 1.0 + math.sqrt(2) / 2.0 / 2.0
 
     window = WindowLinear(
         edge_id=EdgeId(0),
@@ -58,8 +58,8 @@ def test_start_end_distance_linear_window():
         start_distance=1.0,
         source_direction=math.pi / 4
     )
-    assert get_start_distance(window, mesh) == 1.0 + math.sqrt(2) / 2.0 / 4.0
-    assert get_end_distance(window, mesh) == 1.0 + math.sqrt(2) / 2.0 / 2.0
+    assert evaluate_distance_field_at_window_start(window, mesh) == 1.0 + math.sqrt(2) / 2.0 / 4.0
+    assert evaluate_distance_field_at_window_end(window, mesh) == 1.0 + math.sqrt(2) / 2.0 / 2.0
 
     
 def test_start_end_distance_circular_window():
@@ -84,8 +84,8 @@ def test_start_end_distance_circular_window():
         source_point=Vec2D(0.0, 0.0),
     )
 
-    assert get_start_distance(window, mesh) == 1.0
-    assert get_end_distance(window, mesh) == 1.0 + 1.0
+    assert evaluate_distance_field_at_window_start(window, mesh) == 1.0
+    assert evaluate_distance_field_at_window_end(window, mesh) == 1.0 + 1.0
 
     window = WindowCircular(
         edge_id=EdgeId(0),
@@ -95,5 +95,5 @@ def test_start_end_distance_circular_window():
         source_point=Vec2D(0.0, 1.0),
     )
 
-    assert get_start_distance(window, mesh) == 1.0 + 1.0
-    assert get_end_distance(window, mesh) == 1.0 + math.sqrt(2)
+    assert evaluate_distance_field_at_window_start(window, mesh) == 1.0 + 1.0
+    assert evaluate_distance_field_at_window_end(window, mesh) == 1.0 + math.sqrt(2)

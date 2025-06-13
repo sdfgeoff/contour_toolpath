@@ -81,6 +81,10 @@ class Vec3D(NamedTuple):
             return Vec3D(self.x - other.x, self.y - other.y, self.z - other.z)
         else:
             raise TypeError(f"Unsupported type for subtraction: {type(other)}")
+        
+    def __neg__(self) -> "Vec3D":
+        """Return the negation of the vector."""
+        return Vec3D(-self.x, -self.y, -self.z)
 
     def __mul__(self, scalar: "float | Vec3D") -> "Vec3D":  # type: ignore
         if isinstance(scalar, float):
@@ -126,3 +130,4 @@ class Vec3D(NamedTuple):
         if other.length() == 0:
             raise ValueError("Cannot project onto a zero-length vector")
         return other * (self.dot(other) / other.length()**2)
+    
