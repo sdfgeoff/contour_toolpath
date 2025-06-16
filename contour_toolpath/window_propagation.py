@@ -1,9 +1,9 @@
 import math
-from typing import Tuple
+from typing import NamedTuple, Tuple
 
 from matplotlib.collections import PolyCollection
 from matplotlib.tri import Triangulation
-from contour_toolpath.mesh import Edge, Mesh, Triangle, get_edge_length
+from contour_toolpath.mesh import Edge, EdgeId, Mesh, Triangle, get_edge_length
 from contour_toolpath.window import Window, WindowCircular, WindowLinear
 from mathutil.vector import Vec2D, Vec3D
 
@@ -45,7 +45,9 @@ def intersection_from_edge_direction_and_angle(
 ``` 
     """
     edge_length = edge.length()
-    assert edge_length > 0, "Edge length must be greater than 0"
+    if edge_length == 0:
+        # It's in the corner
+        return 0.0
     # Interior angles of a triangle sum to 180 degrees (math.pi), so we can figure out all the interior angles
     angle_between = math.acos(edge.dot(other_edge_direction) / (edge_length * other_edge_direction.length()))
     opposite_angle = math.pi - angle - angle_between
@@ -99,22 +101,30 @@ def calculate_intersection_on_triangle(
 import matplotlib.pyplot as plt
 
 
-def flip_edges(edge1: Edge, edge2: Edge, distance_along_edge1: float) -> Tuple[Edge, Edge, float]:
+def flip_edges(edge1: Edge, edge2: Edge, distance_along_edge1: float, angle_relative_to_edge_1: float) -> Tuple[Edge, Edge, float, float]:
     """ Flip the edges to that both edges share a start vertex""" 
     flipped_edge1 = Edge(start=edge1.end, end=edge1.start)
     flipped_edge2 = Edge(start=edge2.end, end=edge2.start)
     flipped_distance = 1.0 - distance_along_edge1
+    flipped_angle = math.pi - angle_relative_to_edge_1
 
     if edge1.start == edge2.start:
-        return edge1, edge2, distance_along_edge1
+        return edge1, edge2, distance_along_edge1, angle_relative_to_edge_1
     elif edge1.start == edge2.end:
-        return edge1, flipped_edge2, distance_along_edge1
+        return edge1, flipped_edge2, distance_along_edge1, angle_relative_to_edge_1
     elif edge1.end == edge2.start:
-        return flipped_edge1, edge2, flipped_distance
+        return flipped_edge1, edge2, flipped_distance, flipped_angle
     elif edge1.end == edge2.end:
-        return flipped_edge1, flipped_edge2, flipped_distance
+        return flipped_edge1, flipped_edge2, flipped_distance, flipped_angle
     else:
         raise ValueError("Edges do not share a vertex, cannot flip edges.")
+
+
+
+class Intercept(NamedTuple):
+    distance_t: float
+    angle: float
+    
 
 
 def plot_window_in_triangle(window: Window, triangle: Triangle, mesh: Mesh) -> None:
@@ -130,9 +140,9 @@ def plot_window_in_triangle(window: Window, triangle: Triangle, mesh: Mesh) -> N
     positions: list[Vec3D] = []
     directions: list[Vec3D] = []
     for edge_id in triangle.edges:
-        edge_obj = mesh.edges[edge_id]
-        start = mesh.vertices[edge_obj.start].position
-        end = mesh.vertices[edge_obj.end].position
+        edge_obj2 = mesh.edges[edge_id]
+        start = mesh.vertices[edge_obj2.start].position
+        end = mesh.vertices[edge_obj2.end].position
         other_edge_vec = end - start
 
         verts.add(start)
@@ -175,44 +185,89 @@ def plot_window_in_triangle(window: Window, triangle: Triangle, mesh: Mesh) -> N
 
     angle_start, angle_end = get_start_and_end_angle(window, mesh)
 
+
+    windows: list[Window] = []
+
+
     for other_edge in triangle.edges:
-        if other_edge == window.edge_id:
-            continue
+        intercepts: list[Intercept] = []
+        for angle, window_edge_t in [(angle_start, start_t), (angle_end, end_t)]:
+            if other_edge == window.edge_id:
+                continue
 
-        common_edge1, common_edge2, distance_along_edge1 = flip_edges(
-            edge_obj,
-            mesh.edges[other_edge],
-            window.start_t
-        )
+            common_edge1, common_edge2, distance_along_edge1, angle_corrected = flip_edges(
+                edge_obj,
+                mesh.edges[other_edge],
+                window_edge_t,
+                angle,
+            )
+            vcorner = mesh.vertices[common_edge1.start].position
+            vfree = mesh.vertices[common_edge2.end].position
+            vedge = mesh.vertices[common_edge1.end].position
 
-        vcorner = mesh.vertices[common_edge1.start].position
-        vfree = mesh.vertices[common_edge2.end].position
-        vedge = mesh.vertices[common_edge1.end].position
+            dist = (vcorner - vedge).length() * distance_along_edge1
+            intersect_dist_1 = calculate_intersection_on_triangle(
+                vcorner=vcorner,
+                vfree=vfree,
+                vedge=vedge,
+                angle=angle_corrected,
+                dist=dist
+            )
+            assert intersect_dist_1 is not None, "Intersection distance should not be None"
 
-        
+            intersect_position = vcorner + (vfree - vcorner).normalized() * intersect_dist_1
 
-        dist = (vcorner - vedge).length() * distance_along_edge1
-        print(vcorner, vfree, vedge, dist, angle_start)
 
-        intersect_dist = calculate_intersection_on_triangle(
-            vcorner=vcorner,
-            vfree=vfree,
-            vedge=vedge,
-            angle=angle_start,
-            dist=dist
-        )
-        assert intersect_dist is not None, "Intersection distance should not be None"
+            origin_position = start_vertex.position + edge_vec * window_edge_t
 
-        intersect_position = vcorner + (vfree - vcorner).normalized() * intersect_dist
+            # Plot a line from start_position to intersect_position
+            plt.plot(
+                [origin_position.x, intersect_position.x],
+                [origin_position.y, intersect_position.y],
+                [origin_position.z, intersect_position.z],
+                color='green',
+                linewidth=2
+            )
+            # Plot a dot at each intercept
+            ax.scatter(intersect_position.x, intersect_position.y, intersect_position.z, color='black', marker='x')  # Plot the vertices of the triangle
 
-        # Plot a line from start_position to intersect_position
-        plt.plot(
-            [start_position.x, intersect_position.x],
-            [start_position.y, intersect_position.y],
-            [start_position.z, intersect_position.z],
-            color='green',
-            linewidth=2
-        )
+
+
+            intercepts.append(Intercept(
+                distance_t=intersect_dist_1, # TODO: divide by edge length to get in edge-space
+                angle=angle_corrected  # TODO: adjust for edge flipping I think
+            ))
+
+        # From 0 -> first intercept = circular window from window start angle
+        # From first intercept to second intercept = propagate linear/circular window
+        # From second intercept -> infinity = circular window from windw end angle
+        # windows_untrimmed = [
+        #     WindowCircular(
+        #         edge_id=other_edge,
+        #         start_t=0,
+        #         end_t=intercepts[0].distance_t,
+        #         cumulative_distance=window.cumulative_distance, # TODO: Sum this somehow
+        #         source_point=Vec2D(0,0)  # TODO: start point in `other_edge`` space
+        #     ),
+        #     WindowCircular(
+        #         edge_id=other_edge,
+        #         start_t=intercepts[0].distance_t,
+        #         end_t=intercepts[1].distance_t,
+        #     ) if isinstance(window, WindowCircular) else WindowLinear(
+        #         edge_id=other_edge,
+        #         start_t=intercepts[0].distance_t,
+        #         end_t=intercepts[1].distance_t,
+
+        #     ),
+        #     WindowCircular(
+        #         edge_id=other_edge,
+        #         start_t = intercepts[1].distance_t,
+        #         end_t=float('inf'),
+        #         cumulative_distance=window.cumulative_distance, # TODO: Sum this somehow
+        #         source_point=Vec2D(0,0)  # TODO: end point in `other_edge` space
+        #     )
+        # ]
+
 
         
         

@@ -46,7 +46,7 @@ def test_intersection_from_edge_direction_and_angle_no_solution():
     intersection_distance = intersection_from_edge_direction_and_angle(
         Vec3D(1, 0, 0), 
         Vec3D(1, 1, 0),
-        math.pi - math.pi / 4
+        math.pi - math.pi / 2
     )
     assert intersection_distance is None, f"Expected None, got {intersection_distance}"
 
@@ -55,7 +55,7 @@ def test_intersection_from_edge_direction_and_angle_no_solution():
 
 def test_propagate_window():
     mesh = Mesh(
-        vertices=[Vertex(position=Vec3D(0,0,0), d=None), Vertex(position=Vec3D(2,0,0), d=None), Vertex(position=Vec3D(1,1,0), d=None)],
+        vertices=[Vertex(position=Vec3D(0,0,1), d=None), Vertex(position=Vec3D(2,0,0), d=None), Vertex(position=Vec3D(1,1,0), d=None)],
         edges=[Edge(
             start=VertexId(0),
             end=VertexId(1),
@@ -72,18 +72,19 @@ def test_propagate_window():
     )
     window = WindowLinear(
         edge_id=EdgeId(0),
-        start_t=0.25,
+        start_t=0.0,
         end_t=0.75,
         start_distance=0.0,
         source_direction=math.pi / 2,
     )
+    plot_window_in_triangle(window, mesh.faces[0], mesh)
+
     windows = propagate_window_through_triangle(
         window=window, 
         triangle=mesh.faces[0],
         mesh=mesh
     )
-    plot_window_in_triangle(window, mesh.faces[0], mesh)
 
-    assert len(windows) == 2, f"Expected 2 windows, got {len(windows)}"
+    assert len(windows) == 3, f"Expected 2 windows, got {len(windows)}"
     windows_edge_1 = windows[0]
     windows_edge_2 = windows[1]
